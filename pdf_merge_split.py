@@ -1,9 +1,11 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from tkinterdnd2 import DND_FILES, TkinterDnD
 from PyPDF2 import PdfReader, PdfWriter
 
-def add_file():
-    file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
+def add_file(file_path=None):
+    if not file_path:
+        file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
     if file_path:
         file_listbox.insert(tk.END, file_path)
 
@@ -21,30 +23,6 @@ def set_output_file():
     if output_file_path:
         output_file_label.config(text=f"Output File: {output_file_path}")
         root.output_file_path = output_file_path
-
-def move_up():
-    selected_indices = file_listbox.curselection()
-    if not selected_indices:
-        return
-    for index in selected_indices:
-        if index == 0:
-            continue
-        file_path = file_listbox.get(index)
-        file_listbox.delete(index)
-        file_listbox.insert(index - 1, file_path)
-        file_listbox.select_set(index - 1)
-
-def move_down():
-    selected_indices = file_listbox.curselection()
-    if not selected_indices:
-        return
-    for index in selected_indices[::-1]:
-        if index == file_listbox.size() - 1:
-            continue
-        file_path = file_listbox.get(index)
-        file_listbox.delete(index)
-        file_listbox.insert(index + 1, file_path)
-        file_listbox.select_set(index + 1)
 
 def merge_pdfs():
     if not file_listbox.size():
@@ -89,44 +67,72 @@ def split_pdfs():
 
     messagebox.showinfo("Success", "PDF files split successfully!")
 
+def drop(event):
+    files = root.tk.splitlist(event.data)
+    for file in files:
+        if file.lower().endswith('.pdf'):
+            add_file(file)
+
+def on_drag_start(event):
+    widget = event.widget
+    widget._drag_data = {"x": event.x, "y": event.y, "item": widget.nearest(event.y)}
+
+def on_drag_motion(event):
+    widget = event.widget
+    x, y = event.x, event.y
+    widget._drag_data["x"] = x
+    widget._drag_data["y"] = y
+
+def on_drag_end(event):
+    widget = event.widget
+    item = widget._drag_data["item"]
+    new_index = widget.nearest(event.y)
+    if new_index != item:
+        file_path = widget.get(item)
+        widget.delete(item)
+        widget.insert(new_index, file_path)
+        widget.select_set(new_index)
+
 # 创建主窗口
-root = tk.Tk()
-root.title("PDF 拆分合并器")
+root = TkinterDnD.Tk()
+root.title("PDF Merger and Splitter")
 root.output_file_path = None  # Initialize the output file path
 
 # 创建文件列表框
 file_listbox = tk.Listbox(root, selectmode=tk.SINGLE)
 file_listbox.pack(expand=1, fill='both', padx=10, pady=10)
 
+# Enable drag-and-drop functionality
+file_listbox.drop_target_register(DND_FILES)
+file_listbox.dnd_bind('<<Drop>>', drop)
+
+# Enable drag-and-drop reordering within the listbox
+file_listbox.bind("<ButtonPress-1>", on_drag_start)
+file_listbox.bind("<B1-Motion>", on_drag_motion)
+file_listbox.bind("<ButtonRelease-1>", on_drag_end)
+
 # 创建按钮框架
 button_frame = tk.Frame(root)
 button_frame.pack(fill='x')
 
 # 创建添加文件按钮
-add_button = tk.Button(button_frame, text="添加文件", command=add_file)
+add_button = tk.Button(button_frame, text="Add File", command=add_file)
 add_button.pack(side='left', padx=5, pady=5)
 
 # 创建移除选中文件按钮
-remove_button = tk.Button(button_frame, text="移除选择文件", command=remove_selected_file)
+remove_button = tk.Button(button_frame, text="Remove Selected", command=remove_selected_file)
 remove_button.pack(side='left', padx=5, pady=5)
 
 # 创建清空列表按钮
-clear_button = tk.Button(button_frame, text="清除列表", command=clear_list)
+clear_button = tk.Button(button_frame, text="Clear List", command=clear_list)
 clear_button.pack(side='left', padx=5, pady=5)
 
 # 创建设置输出文件按钮
-set_output_button = tk.Button(button_frame, text="设置输出文件名字", command=set_output_file)
+set_output_button = tk.Button(button_frame, text="Set Output File", command=set_output_file)
 set_output_button.pack(side='left', padx=5, pady=5)
 
-# 创建移动文件顺序按钮
-move_up_button = tk.Button(button_frame, text="向上移动", command=move_up)
-move_up_button.pack(side='left', padx=5, pady=5)
-
-move_down_button = tk.Button(button_frame, text="向下移动", command=move_down)
-move_down_button.pack(side='left', padx=5, pady=5)
-
 # 创建输出文件标签
-output_file_label = tk.Label(root, text="输出文件名: 空")
+output_file_label = tk.Label(root, text="Output File: None")
 output_file_label.pack(pady=10)
 
 # 创建确认按钮框架
@@ -134,11 +140,11 @@ confirm_frame = tk.Frame(root)
 confirm_frame.pack(fill='x')
 
 # 创建合并PDF按钮
-merge_button = tk.Button(confirm_frame, text="合并 PDFs", command=merge_pdfs)
+merge_button = tk.Button(confirm_frame, text="Merge PDFs", command=merge_pdfs)
 merge_button.pack(side='left', padx=5, pady=5)
 
 # 创建拆分PDF按钮
-split_button = tk.Button(confirm_frame, text="拆分 PDFs", command=split_pdfs)
+split_button = tk.Button(confirm_frame, text="Split PDFs", command=split_pdfs)
 split_button.pack(side='left', padx=5, pady=5)
 
 # 运行主循环
